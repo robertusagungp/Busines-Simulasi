@@ -5,6 +5,8 @@ import { useSimulator } from "../SimulatorContext";
 import { formatRupiah, formatCompactRupiah } from "../../lib/utils/currency";
 import { IncomeBreakdownModal } from "../income/IncomeBreakdownModal";
 import { AddDownlineModal } from "../simulator/AddDownlineModal";
+import { AddPersonalAlpModal } from "../simulator/AddPersonalAlpModal";
+import { SaveScenarioModal } from "../scenarios/SaveScenarioModal";
 import {
   ShieldCheck,
   TrendingUp,
@@ -16,6 +18,8 @@ import {
   Users,
   Coins,
   ChevronRight,
+  Save,
+  RotateCcw,
 } from "lucide-react";
 
 interface DashboardViewProps {
@@ -28,11 +32,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab }) =
     incomeSummary,
     rules,
     addPersonalAlp,
+    startFreshScenario,
   } = useSimulator();
 
   const [isBreakdownOpen, setIsBreakdownOpen] = useState(false);
   const [isAddDownlineOpen, setIsAddDownlineOpen] = useState(false);
   const [isAddPersonalOpen, setIsAddPersonalOpen] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [personalInputAmt, setPersonalInputAmt] = useState<number>(50_000_000);
 
   const isBP = incomeSummary.mainPersonStatus === "BP";
@@ -77,21 +83,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab }) =
           </div>
 
           {/* Action CTAs */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={() => setIsBreakdownOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all flex items-center gap-2"
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all flex items-center gap-1.5"
             >
               <Calculator className="w-4 h-4 text-sky-300" />
-              <span>Lihat Rincian Rumus</span>
+              <span>Lihat Rumus</span>
+            </button>
+
+            <button
+              onClick={() => setIsAddPersonalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 border border-emerald-500/50 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/20"
+            >
+              <Coins className="w-4 h-4" />
+              <span>+ Personal</span>
             </button>
 
             <button
               onClick={() => setIsAddDownlineOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-sky-500/20"
+              className="px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-sky-500/20"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Produksi Anak</span>
+              <span>+ Downline</span>
+            </button>
+
+            <button
+              onClick={() => setIsSaveModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold transition-all flex items-center gap-1.5"
+              title="Simpan skenario simulasi"
+            >
+              <Save className="w-4 h-4 text-amber-300" />
+              <span>Simpan</span>
             </button>
           </div>
         </div>
@@ -368,13 +391,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab }) =
             </p>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 space-y-2">
             <button
               onClick={() => onNavigateTab("simulator")}
               className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
             >
               <span>Buka Simulator Wizard</span>
               <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                startFreshScenario();
+                onNavigateTab("simulator");
+              }}
+              className="w-full py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+              <span>Mulai Skenario dari Nol</span>
             </button>
           </div>
         </div>
@@ -391,6 +424,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab }) =
       <AddDownlineModal
         isOpen={isAddDownlineOpen}
         onClose={() => setIsAddDownlineOpen(false)}
+      />
+
+      <AddPersonalAlpModal
+        isOpen={isAddPersonalOpen}
+        onClose={() => setIsAddPersonalOpen(false)}
+      />
+
+      <SaveScenarioModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        defaultMode="save_current"
       />
     </div>
   );

@@ -6,7 +6,8 @@ export type QualificationScheme =
   | "SCHEME_1" // 300jt Sendiri
   | "SCHEME_2" // 200jt + 50jt + 50jt (min 50jt/orang)
   | "SCHEME_3" // 100jt + 100jt + 100jt
-  | "SCHEME_4"; // Fleksibel / Keroyokan
+  | "SCHEME_4" // Fleksibel / Keroyokan
+  | "SCHEME_CUSTOM"; // Kustom Bebas / Mulai dari Nol (Bertahap)
 
 export type AlpClassification =
   | "PERSONAL"

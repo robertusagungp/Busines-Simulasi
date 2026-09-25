@@ -37,9 +37,12 @@ interface SimulatorContextType {
   organizationTree: OrganizationNode | null;
   rules: BusinessRulesConfig;
 
-  // Actions
+  // Scenario Management
   switchScenario: (id: string) => void;
   createNewScenario: (name: string, scheme: QualificationScheme) => void;
+  startFreshScenario: (name?: string, startingAlp?: number) => void;
+  saveActiveScenarioAsNew: (name: string, description?: string) => string;
+  saveActiveScenarioDetails: (name: string, description?: string) => void;
   duplicateCurrentScenario: (customName?: string) => void;
   renameScenario: (id: string, newName: string) => void;
   deleteScenario: (id: string) => void;
@@ -62,6 +65,8 @@ interface SimulatorContextType {
   ) => void;
 
   addNewDownlinePerson: (name: string, startingAlp?: number) => void;
+  deleteDownlinePerson: (personId: string) => void;
+  deleteAlpEvent: (eventId: string) => void;
 
   updateRules: (newRules: BusinessRulesConfig) => void;
 }
@@ -115,6 +120,98 @@ export function SimulatorProvider({ children }: { children: React.ReactNode }) {
     const updated = [...scenarios, newScenario];
     updateScenariosState(updated);
     switchScenario(id);
+  };
+
+  const startFreshScenario = (
+    name: string = "Simulasi Baru (Mulai dari Nol)",
+    startingAlp: number = 0
+  ) => {
+    const id = `scenario-${Date.now()}`;
+    const mainPerson: Person = {
+      id: "person-main",
+      name: "Saya",
+      initialStatus: "BE",
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    const alpEvents: AlpEvent[] = [];
+    const promotionEvents: PromotionEvent[] = [];
+    const rules = activeScenario?.rules || DEFAULT_BUSINESS_RULES;
+
+    if (startingAlp > 0) {
+      const monthlyComm = Math.round((startingAlp * rules.personalCommissionRate) / rules.monthsPerYear);
+      alpEvents.push({
+        id: `alp-personal-${Date.now()}`,
+        personId: "person-main",
+        amount: startingAlp,
+        date: new Date().toISOString().slice(0, 10),
+        description: `Produksi personal awal`,
+        producerStatusAtEvent: "BE",
+        parentStatusAtEvent: undefined,
+        classification: "PERSONAL",
+        rateApplied: rules.personalCommissionRate,
+        monthlyIncomeToProducer: monthlyComm,
+        monthlyIncomeToParent: 0,
+      });
+
+      if (startingAlp >= rules.bpQualificationALP) {
+        promotionEvents.push({
+          id: `promo-main-bp-${Date.now()}`,
+          personId: "person-main",
+          from: "BE",
+          to: "BP",
+          date: new Date().toISOString().slice(0, 10),
+          triggerAlpTotal: startingAlp,
+          notes: "Mencapai kualifikasi BP dari produksi personal awal.",
+        });
+      }
+    }
+
+    const newScenario: SimulationScenario = {
+      id,
+      name,
+      description: "Skenario kustom mulai dari awal.",
+      rules,
+      mainPerson,
+      people: [mainPerson],
+      alpEvents,
+      promotionEvents,
+      selectedScheme: "SCHEME_CUSTOM",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = [...scenarios, newScenario];
+    updateScenariosState(updated);
+    switchScenario(id);
+  };
+
+  const saveActiveScenarioAsNew = (name: string, description?: string): string => {
+    if (!activeScenario) return "";
+    const id = `scenario-${Date.now()}`;
+    const newScenario: SimulationScenario = {
+      ...JSON.parse(JSON.stringify(activeScenario)),
+      id,
+      name: name.trim() || `Skenario ${new Date().toLocaleDateString("id-ID")}`,
+      description: description || activeScenario.description || "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = [...scenarios, newScenario];
+    updateScenariosState(updated);
+    switchScenario(id);
+    return id;
+  };
+
+  const saveActiveScenarioDetails = (name: string, description?: string) => {
+    if (!activeScenario) return;
+    const updatedActive: SimulationScenario = {
+      ...activeScenario,
+      name: name.trim() || activeScenario.name,
+      description: description !== undefined ? description : activeScenario.description,
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = scenarios.map((s) => (s.id === activeId ? updatedActive : s));
+    updateScenariosState(updated);
   };
 
   const duplicateCurrentScenario = (customName?: string) => {
@@ -338,6 +435,61 @@ export function SimulatorProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteDownlinePerson = (personId: string) => {
+    if (!activeScenario || personId === activeScenario.mainPerson.id) return;
+    const updatedPeople = activeScenario.people.filter((p) => p.id !== personId);
+    const updatedEvents = activeScenario.alpEvents.filter((e) => e.personId !== personId);
+    const updatedPromotions = activeScenario.promotionEvents.filter((p) => p.personId !== personId);
+
+    const updatedActive: SimulationScenario = {
+      ...activeScenario,
+      people: updatedPeople,
+      alpEvents: updatedEvents,
+      promotionEvents: updatedPromotions,
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = scenarios.map((s) => (s.id === activeId ? updatedActive : s));
+    updateScenariosState(updated);
+  };
+
+  const deleteAlpEvent = (eventId: string) => {
+    if (!activeScenario) return;
+    const filteredEvents = activeScenario.alpEvents.filter((e) => e.id !== eventId);
+
+    // Re-check promotions for everyone
+    const newPromotions: PromotionEvent[] = [];
+    activeScenario.people.forEach((p) => {
+      const personalAlp = filteredEvents
+        .filter((e) => e.personId === p.id)
+        .reduce((sum, e) => sum + e.amount, 0);
+
+      const qualAlp =
+        p.id === activeScenario.mainPerson.id
+          ? filteredEvents.reduce((sum, e) => sum + e.amount, 0)
+          : personalAlp;
+
+      if (
+        personalAlp >= activeScenario.rules.bpQualificationALP ||
+        (p.id === activeScenario.mainPerson.id &&
+          qualAlp >= activeScenario.rules.bpQualificationALP)
+      ) {
+        const existingPromo = activeScenario.promotionEvents.find((pr) => pr.personId === p.id);
+        if (existingPromo) {
+          newPromotions.push(existingPromo);
+        }
+      }
+    });
+
+    const updatedActive: SimulationScenario = {
+      ...activeScenario,
+      alpEvents: filteredEvents,
+      promotionEvents: newPromotions,
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = scenarios.map((s) => (s.id === activeId ? updatedActive : s));
+    updateScenariosState(updated);
+  };
+
   const updateRules = (newRules: BusinessRulesConfig) => {
     if (!activeScenario) return;
     const updatedActive: SimulationScenario = {
@@ -380,6 +532,9 @@ export function SimulatorProvider({ children }: { children: React.ReactNode }) {
         rules: activeScenario.rules,
         switchScenario,
         createNewScenario,
+        startFreshScenario,
+        saveActiveScenarioAsNew,
+        saveActiveScenarioDetails,
         duplicateCurrentScenario,
         renameScenario,
         deleteScenario,
@@ -388,6 +543,8 @@ export function SimulatorProvider({ children }: { children: React.ReactNode }) {
         addPersonalAlp,
         addDownlineProduction,
         addNewDownlinePerson,
+        deleteDownlinePerson,
+        deleteAlpEvent,
         updateRules,
       }}
     >

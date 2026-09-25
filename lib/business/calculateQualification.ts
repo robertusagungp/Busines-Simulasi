@@ -8,6 +8,8 @@ export interface ContributorInput {
 
 export interface SchemeValidationResult {
   isValid: boolean;
+  isQualifiedBp: boolean;
+  canProceed: boolean;
   totalQualificationAlp: number;
   percentage: number;
   message?: string;
@@ -25,24 +27,42 @@ export function validateQualificationScheme(
   const contributorTotal = contributors.reduce((sum, c) => sum + (c.alp || 0), 0);
   const totalAlp = (mainAlp || 0) + contributorTotal;
   const percentage = Math.min(100, Number(((totalAlp / threshold) * 100).toFixed(1)));
+  const isQualifiedBp = totalAlp >= threshold;
 
   const contributorErrors: Record<number, string> = {};
   let mainError: string | undefined;
 
   switch (scheme) {
+    case "SCHEME_CUSTOM": {
+      return {
+        isValid: isQualifiedBp,
+        isQualifiedBp,
+        canProceed: true, // Always allow proceeding to simulate the journey
+        totalQualificationAlp: totalAlp,
+        percentage,
+        message: isQualifiedBp
+          ? `🎉 Memenuhi target kualifikasi BP (${formatIdr(totalAlp)}). Siap promosi menjadi BP!`
+          : `Status saat ini: BE. Terkumpul ${formatIdr(totalAlp)} dari target ${formatIdr(threshold)} (Kurang ${formatIdr(threshold - totalAlp)}).`,
+      };
+    }
+
     case "SCHEME_1": {
       if (mainAlp < threshold) {
-        mainError = `Skema 1 memerlukan minimal ${formatIdr(threshold)} produksi personal. Kurang ${formatIdr(threshold - mainAlp)}.`;
+        mainError = `Skema 1 memerlukan ${formatIdr(threshold)} produksi personal. Terisi ${formatIdr(mainAlp)}.`;
         return {
           isValid: false,
+          isQualifiedBp: false,
+          canProceed: true, // Allow proceeding as BE if user wants to start small
           totalQualificationAlp: totalAlp,
           percentage,
           mainError,
-          message: mainError,
+          message: `Status saat ini: BE (${formatIdr(mainAlp)} / ${formatIdr(threshold)}). Tambah produksi untuk kualifikasi BP.`,
         };
       }
       return {
         isValid: true,
+        isQualifiedBp: true,
+        canProceed: true,
         totalQualificationAlp: totalAlp,
         percentage: 100,
         message: "Memenuhi kualifikasi BP (Skema 1: Full Personal).",
@@ -52,61 +72,45 @@ export function validateQualificationScheme(
     case "SCHEME_2": {
       let valid = true;
       if (mainAlp < 200_000_000) {
-        mainError = "Produksi personal utama minimal Rp200 juta untuk Skema 2.";
+        mainError = "Produksi personal utama minimal Rp200 juta untuk Skema 2 standar.";
         valid = false;
       }
       if (contributors.length < 2) {
         valid = false;
-        return {
-          isValid: false,
-          totalQualificationAlp: totalAlp,
-          percentage,
-          mainError,
-          message: "Skema 2 memerlukan minimal 2 kontributor.",
-        };
       }
 
       contributors.forEach((c, idx) => {
         if ((c.alp || 0) < rules.scheme2MinContributorALP) {
-          contributorErrors[idx] = `Kontribusi minimum untuk skema ini adalah ${formatIdr(rules.scheme2MinContributorALP)}/orang.`;
+          contributorErrors[idx] = `Kontribusi minimum skema ini adalah ${formatIdr(rules.scheme2MinContributorALP)}/orang.`;
           valid = false;
         }
       });
 
-      if (totalAlp < threshold) {
-        valid = false;
-      }
-
       return {
-        isValid: valid && totalAlp >= threshold,
+        isValid: valid && isQualifiedBp,
+        isQualifiedBp,
+        canProceed: true,
         totalQualificationAlp: totalAlp,
         percentage,
         mainError,
         contributorErrors,
         message:
-          valid && totalAlp >= threshold
+          valid && isQualifiedBp
             ? "Memenuhi kualifikasi BP (Skema 2: 200jt + 50jt + 50jt)."
-            : totalAlp < threshold
-            ? `Total kualifikasi baru ${formatIdr(totalAlp)} dari target ${formatIdr(threshold)}.`
-            : "Terdapat input kontributor yang belum memenuhi syarat minimum.",
+            : isQualifiedBp
+            ? "Total mencapai Rp300jt, namun distribusi belum sesuai standar Skema 2."
+            : `Total kualifikasi baru ${formatIdr(totalAlp)} dari target ${formatIdr(threshold)}.`,
       };
     }
 
     case "SCHEME_3": {
       let valid = true;
       if (mainAlp < 100_000_000) {
-        mainError = "Produksi personal utama minimal Rp100 juta untuk Skema 3.";
+        mainError = "Produksi personal utama minimal Rp100 juta untuk Skema 3 standar.";
         valid = false;
       }
       if (contributors.length < 2) {
         valid = false;
-        return {
-          isValid: false,
-          totalQualificationAlp: totalAlp,
-          percentage,
-          mainError,
-          message: "Skema 3 memerlukan minimal 2 kontributor.",
-        };
       }
 
       contributors.forEach((c, idx) => {
@@ -117,25 +121,28 @@ export function validateQualificationScheme(
       });
 
       return {
-        isValid: valid && totalAlp >= threshold,
+        isValid: valid && isQualifiedBp,
+        isQualifiedBp,
+        canProceed: true,
         totalQualificationAlp: totalAlp,
         percentage,
         mainError,
         contributorErrors,
         message:
-          valid && totalAlp >= threshold
+          valid && isQualifiedBp
             ? "Memenuhi kualifikasi BP (Skema 3: 100jt + 100jt + 100jt)."
             : `Total kualifikasi ${formatIdr(totalAlp)} dari target ${formatIdr(threshold)}.`,
       };
     }
 
     case "SCHEME_4": {
-      const valid = totalAlp >= threshold;
       return {
-        isValid: valid,
+        isValid: isQualifiedBp,
+        isQualifiedBp,
+        canProceed: true,
         totalQualificationAlp: totalAlp,
         percentage,
-        message: valid
+        message: isQualifiedBp
           ? "Memenuhi kualifikasi BP (Skema 4: Keroyokan / Fleksibel)."
           : `Total kualifikasi baru ${formatIdr(totalAlp)} dari target ${formatIdr(threshold)}.`,
       };
@@ -143,7 +150,9 @@ export function validateQualificationScheme(
 
     default:
       return {
-        isValid: totalAlp >= threshold,
+        isValid: isQualifiedBp,
+        isQualifiedBp,
+        canProceed: true,
         totalQualificationAlp: totalAlp,
         percentage,
       };
@@ -182,7 +191,10 @@ export function createInitialSchemeData(
   let mainAlp = 0;
   let contributorsData: ContributorInput[] = [];
 
-  if (scheme === "SCHEME_1") {
+  if (scheme === "SCHEME_CUSTOM") {
+    mainAlp = customInputs?.mainAlp ?? 0;
+    contributorsData = customInputs?.contributors ?? [];
+  } else if (scheme === "SCHEME_1") {
     mainAlp = customInputs?.mainAlp ?? 300_000_000;
   } else if (scheme === "SCHEME_2") {
     mainAlp = customInputs?.mainAlp ?? 200_000_000;

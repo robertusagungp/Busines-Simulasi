@@ -1,9 +1,8 @@
-"use client";
-
 import React, { useState } from "react";
 import { useSimulator } from "../SimulatorContext";
 import { formatRupiah, formatCompactRupiah } from "../../lib/utils/currency";
-import { calculateScenarioIncome } from "../../lib/business";
+import { calculateScenarioIncome, QualificationScheme } from "../../lib/business";
+import { SaveScenarioModal } from "./SaveScenarioModal";
 import {
   Layers,
   Copy,
@@ -15,6 +14,8 @@ import {
   X,
   BarChart3,
   CheckCircle2,
+  Save,
+  Sparkles,
 } from "lucide-react";
 
 export const ScenarioManagerView: React.FC = () => {
@@ -23,6 +24,7 @@ export const ScenarioManagerView: React.FC = () => {
     activeScenarioId,
     switchScenario,
     createNewScenario,
+    startFreshScenario,
     duplicateCurrentScenario,
     renameScenario,
     deleteScenario,
@@ -31,8 +33,10 @@ export const ScenarioManagerView: React.FC = () => {
 
   const [isCreating, setIsCreating] = useState(false);
   const [newScenarioName, setNewScenarioName] = useState("");
+  const [selectedSchemeForNew, setSelectedSchemeForNew] = useState<QualificationScheme>("SCHEME_CUSTOM");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNameText, setEditNameText] = useState("");
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
   const handleStartRename = (id: string, currentName: string) => {
     setEditingId(id);
@@ -49,7 +53,11 @@ export const ScenarioManagerView: React.FC = () => {
   const handleCreateNew = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newScenarioName.trim()) return;
-    createNewScenario(newScenarioName.trim(), "SCHEME_3");
+    if (selectedSchemeForNew === "SCHEME_CUSTOM") {
+      startFreshScenario(newScenarioName.trim(), 0);
+    } else {
+      createNewScenario(newScenarioName.trim(), selectedSchemeForNew);
+    }
     setNewScenarioName("");
     setIsCreating(false);
   };
@@ -88,7 +96,16 @@ export const ScenarioManagerView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => startFreshScenario("Simulasi Baru (Mulai dari Nol)", 0)}
+            className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5"
+            title="Mulai simulasi agen baru dari nol"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+            <span>Mulai dari Nol</span>
+          </button>
+
           <button
             onClick={() => setIsCreating(true)}
             className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
@@ -114,28 +131,41 @@ export const ScenarioManagerView: React.FC = () => {
           onSubmit={handleCreateNew}
           className="p-5 bg-white rounded-2xl border-2 border-sky-300 shadow-md space-y-3"
         >
-          <div className="font-bold text-sm text-slate-800">Buat Skenario Baru</div>
-          <div className="flex gap-2">
+          <div className="font-bold text-sm text-slate-800">Buat Skenario Simulasi Baru</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <input
               type="text"
               required
-              placeholder="Nama skenario (misal: Strategi Rekrut 5 Mitra)"
+              placeholder="Nama skenario (misal: Rencana Agen Baru 2026)"
               value={newScenarioName}
               onChange={(e) => setNewScenarioName(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-300 px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              className="sm:col-span-2 rounded-xl border border-slate-300 px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
             />
+            <select
+              value={selectedSchemeForNew}
+              onChange={(e) => setSelectedSchemeForNew(e.target.value as QualificationScheme)}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium focus:outline-none focus:border-sky-500 bg-white"
+            >
+              <option value="SCHEME_CUSTOM">Mulai dari Nol (Kustom Bebas)</option>
+              <option value="SCHEME_1">Skema 1 (300jt Sendiri)</option>
+              <option value="SCHEME_2">Skema 2 (200 + 50 + 50)</option>
+              <option value="SCHEME_3">Skema 3 (100 + 100 + 100)</option>
+              <option value="SCHEME_4">Skema 4 (Keroyokan)</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsCreating(false)}
+              className="px-3.5 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-medium"
+            >
+              Batal
+            </button>
             <button
               type="submit"
               className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors"
             >
-              Simpan
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsCreating(false)}
-              className="px-3 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-medium"
-            >
-              Batal
+              Buat Skenario
             </button>
           </div>
         </form>
@@ -382,6 +412,12 @@ export const ScenarioManagerView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <SaveScenarioModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        defaultMode="save_as_new"
+      />
     </div>
   );
 };

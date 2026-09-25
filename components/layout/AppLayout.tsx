@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useSimulator } from "../SimulatorContext";
 import { formatCompactRupiah, formatRupiah } from "../../lib/utils/currency";
+import { SaveScenarioModal } from "../scenarios/SaveScenarioModal";
 import {
   LayoutDashboard,
   Calculator,
@@ -16,6 +17,8 @@ import {
   Plus,
   Coins,
   ChevronDown,
+  Save,
+  Sparkles,
 } from "lucide-react";
 
 export type ActiveTab =
@@ -42,10 +45,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     activeScenarioId,
     activeScenario,
     switchScenario,
+    startFreshScenario,
     incomeSummary,
   } = useSimulator();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
   const navItems = [
     { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
@@ -87,13 +92,35 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
 
           {/* Active Scenario Selector & Quick Stats */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Quick Actions */}
+            <button
+              onClick={() => {
+                startFreshScenario();
+                setActiveTab("simulator");
+              }}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
+              title="Mulai simulasi agen baru dari nol"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+              <span>Dari Nol</span>
+            </button>
+
+            <button
+              onClick={() => setIsSaveModalOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 text-xs font-bold transition-colors"
+              title="Simpan perubahan skenario"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Simpan</span>
+            </button>
+
             {/* Scenario Dropdown */}
             <div className="relative">
               <select
                 value={activeScenarioId}
                 onChange={(e) => switchScenario(e.target.value)}
-                className="appearance-none bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-xl px-3 py-1.5 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-200 cursor-pointer max-w-[160px] sm:max-w-[240px] truncate"
+                className="appearance-none bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-xl px-3 py-1.5 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-200 cursor-pointer max-w-[130px] sm:max-w-[200px] truncate"
               >
                 {scenarios.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -105,7 +132,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             </div>
 
             {/* Status Pill */}
-            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 text-xs">
+            <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 text-xs">
               <span className={`px-2.5 py-1 rounded-full font-bold flex items-center gap-1 text-[11px] ${
                 incomeSummary.mainPersonStatus === "BP"
                   ? "bg-purple-100 text-purple-700"
@@ -114,7 +141,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <ShieldCheck className="w-3.5 h-3.5" />
                 {incomeSummary.mainPersonStatus}
               </span>
-              <span className="font-bold text-slate-800 text-xs hidden md:inline">
+              <span className="font-bold text-slate-800 text-xs">
                 {formatCompactRupiah(incomeSummary.totalMonthlyIncome)}/bln
               </span>
             </div>
@@ -246,6 +273,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           );
         })}
       </div>
+
+      <SaveScenarioModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        defaultMode="save_current"
+      />
     </div>
   );
 };
